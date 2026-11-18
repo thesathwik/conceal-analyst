@@ -1,0 +1,16 @@
+# One term per line; used for the finance-term error rate in validate.py. Add company and product names.
+ebitda
+crore
+lakh
+bps
+basis points
+margin
+capex
+order book
+guidance
+revenue
+pat
+net debt
+working capital
+realisation
+utilisation

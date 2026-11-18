@@ -1,0 +1,107 @@
+# ROCm deployment on AMD Instinct MI300X (gfx942 / CDNA3): vLLM for the LLM and for Whisper.
+#
+#   cp deploy/rocm.env.example deploy/.env   # then edit (model IDs, precision, tuning knobs)
+#   docker compose -f deploy/docker-compose.rocm.yml --env-file deploy/.env up -d
+#   python deploy/smoke.py --audio data/audio/<call>.mp3
+#
+# Fallback if the pinned vLLM cannot serve /v1/audio/transcriptions for Whisper:
+#   docker compose -f deploy/docker-compose.rocm.yml --env-file deploy/.env --profile asr-fallback up -d llm asr-fallback
+#
+# Image tags are pinned exactly; record them in the README results (IMAGE_TAG).
+
+x-rocm-device: &rocm-device
+  devices:
+    - /dev/kfd
+    - /dev/dri
+  group_add:
+    - video
+  ipc: host
+  security_opt:
+    - seccomp=unconfined
+  shm_size: 16g
+  volumes:
+    - ${MODEL_CACHE:-/data/models}:/models
+  restart: unless-stopped
+
+x-common-env: &common-env
+  HF_HOME: /models/hf
+  HF_TOKEN: ${HF_TOKEN:-}
+  PYTORCH_TUNABLEOP_ENABLED: ${PYTORCH_TUNABLEOP_ENABLED:-0}
+  PYTORCH_TUNABLEOP_FILENAME: /models/tunableop/results%d.csv
+
+services:
+  llm:
+    <<: *rocm-device
+    image: rocm/vllm:rocm7.14.1_cdna_ubuntu24.04_py3.14_pytorch_2.11_vllm_0.23.0
+    container_name: concall-llm
+    environment:
+      <<: *common-env
+      HIP_VISIBLE_DEVICES: ${LLM_GPU:-0}
+    ports:
+      - "8000:8000"
+    entrypoint: ["/bin/bash", "-lc"]
+    command:
+      - >-
+        mkdir -p /models/tunableop &&
+        vllm serve ${LLM_MODEL_ID:-Qwen/Qwen2.5-7B-Instruct}
+        --host 0.0.0.0 --port 8000
+        --dtype ${LLM_DTYPE:-bfloat16}
+        --max-model-len ${LLM_MAX_MODEL_LEN:-8192}
+        --gpu-memory-utilization ${LLM_GPU_MEM:-0.45}
+        --max-num-seqs ${LLM_MAX_NUM_SEQS:-64}
+        --max-num-batched-tokens ${LLM_MAX_NUM_BATCHED_TOKENS:-8192}
+        ${LLM_EXTRA_ARGS:-}
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8000/v1/models"]
+      interval: 15s
+      timeout: 5s
+      retries: 60
+      start_period: 120s
+
+  asr:
+    <<: *rocm-device
+    image: rocm/vllm:rocm7.14.1_cdna_ubuntu24.04_py3.14_pytorch_2.11_vllm_0.23.0
+    container_name: concall-asr
+    environment:
+      <<: *common-env
+      HIP_VISIBLE_DEVICES: ${ASR_GPU:-0}
+    ports:
+      - "8001:8001"
+    entrypoint: ["/bin/bash", "-lc"]
+    command:
+      - >-
+        vllm serve ${ASR_MODEL_ID:-openai/whisper-large-v3}
+        --host 0.0.0.0 --port 8001
+        --dtype ${ASR_DTYPE:-float16}
+        --gpu-memory-utilization ${ASR_GPU_MEM:-0.20}
+        --max-num-seqs ${ASR_MAX_NUM_SEQS:-32}
+        ${ASR_EXTRA_ARGS:-}
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8001/v1/models"]
+      interval: 15s
+      timeout: 5s
+      retries: 60
+      start_period: 120s
+
+  # Hugging Face transformers Whisper behind the same OpenAI-compatible route (asr_server.py).
+  asr-fallback:
+    <<: *rocm-device
+    profiles: ["asr-fallback"]
+    image: rocm/pytorch:rocm10.1.0_ubuntu24.04_py3.12_pytorch_release_2.14.0
+    container_name: concall-asr-fallback
+    environment:
+      <<: *common-env
+      HIP_VISIBLE_DEVICES: ${ASR_GPU:-0}
+      ASR_MODEL_ID: ${ASR_MODEL_ID:-openai/whisper-large-v3}
+      ASR_TORCH_DTYPE: ${ASR_DTYPE:-float16}
+    ports:
+      - "8001:8001"
+    volumes:
+      - ${MODEL_CACHE:-/data/models}:/models
+      - ..:/app:ro
+    working_dir: /app
+    entrypoint: ["/bin/bash", "-lc"]
+    command:
+      - >-
+        pip install --no-cache-dir -q -r deploy/requirements-asr.txt &&
+        python asr_server.py --host 0.0.0.0 --port 8001

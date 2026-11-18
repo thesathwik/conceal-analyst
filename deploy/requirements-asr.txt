@@ -1,0 +1,6 @@
+# Installed inside the rocm/pytorch container for asr_server.py only (GPU box). Never on the laptop.
+transformers>=4.45
+accelerate>=0.34
+fastapi>=0.110
+uvicorn>=0.29
+python-multipart>=0.0.9

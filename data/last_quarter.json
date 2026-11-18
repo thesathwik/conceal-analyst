@@ -1,0 +1,14 @@
+{
+  "company": "EXAMPLE - replace with the chosen company",
+  "quarter": "Q2FY27 (guidance given on the previous call)",
+  "metrics": [
+    {"metric": "revenue_growth", "value_low": 12.0, "value_high": 15.0, "unit": "percent", "period": "FY27", "type": "guidance",
+     "quote": "placeholder - copy the exact sentence from last quarter's call"},
+    {"metric": "ebitda_margin", "value_low": 16.0, "value_high": 17.0, "unit": "percent", "period": "FY27", "type": "guidance",
+     "quote": "placeholder"},
+    {"metric": "capex", "value_low": 1200.0, "value_high": 1200.0, "unit": "inr_crore", "period": "FY27", "type": "guidance",
+     "quote": "placeholder"},
+    {"metric": "order_book", "value_low": 25000.0, "value_high": 25000.0, "unit": "inr_crore", "period": "FY27", "type": "guidance",
+     "quote": "placeholder"}
+  ]
+}

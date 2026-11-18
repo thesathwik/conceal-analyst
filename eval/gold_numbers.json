@@ -1,0 +1,7 @@
+{
+  "_readme": "Hand-label every figure management states in data/reference/<call>.txt. Same fields as the extraction schema minus quote. Values in inr_crore / percent / bps. Replace the example below.",
+  "call": "EXAMPLE",
+  "figures": [
+    {"metric": "ebitda_margin", "value_low": 16.0, "value_high": 17.0, "unit": "percent", "period": "FY27", "type": "guidance"}
+  ]
+}

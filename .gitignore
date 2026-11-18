@@ -1,0 +1,17 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+runs/
+data/audio/*
+!data/audio/.gitkeep
+data/reference/*
+!data/reference/.gitkeep
+*.mp3
+*.wav
+*.m4a
+*.safetensors
+*.bin
+*.gguf
+.DS_Store
